@@ -1,4 +1,4 @@
 NL_Sentence,EN_Sentence,Type,File_Group,Repetitions,Tense
-De kat zit...,The cat sits...,Paragraph,DeKatEnDeHond,,Present
-De kat zit op de mat.,The cat sits...,Repeat,DeKatEnDeHond,3,Present
+De kat zit,,Paragraph,DeKatEnDeHond,,Present
+De kat zit op de mat.,The cat sits on the mat.,Repeat,DeKatEnDeHond,3,Present
 De hond slaapt.,The dog sleeps.,Repeat,DeKatEnDeHond,,Present

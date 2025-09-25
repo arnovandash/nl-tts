@@ -1,4 +1,6 @@
-# Dutch Audio Lesson Generator
+# Sentence Repetition Audio Generator
+
+A language learning text-to-speech audio snippet generator for learning through sentence repetition, similar to the Glossika method.
 
 This script automates the creation of Dutch audio lessons from a CSV file. It uses the Google Gemini API to generate text-to-speech audio, designed for practicing grammar and speaking. The script groups sentences, adds pauses for repetition, and handles different recording types like paragraphs and single sentences. I created it specifically for my Dutch language studies but it can easily be adapted for any language.
 
@@ -48,22 +50,26 @@ python dutch_audio_generator.py --test
 
 ## CSV Structure
 
+The CSV is designed to be flexible. A common workflow is to have a `Paragraph` row containing a full block of text, followed by several `Repeat` rows, each containing a sentence from that paragraph. This allows you to first hear the full text, and then practice the individual sentences in any order you like.
+
 The script requires the following column headers in `dutch_notes.csv`.
 
 | NL_Sentence | EN_Sentence | Type | File_Group | Repetitions | Tense |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| *De kat zit...* | *The cat sits...* | Paragraph | DeKatEnDeHond | | Present |
-| De kat zit op de mat. | The cat sits... | Repeat | DeKatEnDeHond | 3 | Present |
+| *De kat zit...* |  | Paragraph | DeKatEnDeHond | | Present |
+| De kat zit op de mat. | The cat sits on the mat. | Repeat | DeKatEnDeHond | 3 | Present |
 | De hond slaapt. | The dog sleeps. | Repeat | DeKatEnDeHond | | Present |
 
 **Note on Comments:** You can add comments to your CSV file by starting a line with `#` or `//`. These lines will be ignored by the script.
 
 *   `NL_Sentence`: **(Required)** The Dutch text.
-*   `EN_Sentence`: (Optional) English translation, read once at the start.
+*   `EN_Sentence`: (Optional) English translation, read once at the start of a `Repeat` block. This is ignored for `Paragraph` type rows.
 *   `Type`: **(Required)** `Paragraph` or `Repeat`.
 *   `File_Group`: **(Required)** Groups rows into a single MP3 file.
 *   `Repetitions`: (Optional) Number of times to repeat the Dutch audio. Defaults to 2.
 *   `Tense`: (Optional) For personal notes; ignored by the script.
+
+**Pro Tip:** For easy editing and management, you can maintain your notes in a Google Sheet and export it to CSV format.
 
 ## Script Configuration
 
