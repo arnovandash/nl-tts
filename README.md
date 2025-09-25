@@ -24,7 +24,7 @@ This script automates the creation of Dutch audio lessons from a CSV file. It us
 
 3.  **Install Dependencies:**
     ```bash
-    pip install google-genai pandas pydub
+    pip install google-genai pandas pydub audioop-lts
     ```
 
 4.  **Create Project Files:** In your project directory, create:
@@ -55,6 +55,8 @@ The script requires the following column headers in `dutch_notes.csv`.
 | *De kat zit...* | *The cat sits...* | Paragraph | DeKatEnDeHond | | Present |
 | De kat zit op de mat. | The cat sits... | Repeat | DeKatEnDeHond | 3 | Present |
 | De hond slaapt. | The dog sleeps. | Repeat | DeKatEnDeHond | | Present |
+
+**Note on Comments:** You can add comments to your CSV file by starting a line with `#` or `//`. These lines will be ignored by the script.
 
 *   `NL_Sentence`: **(Required)** The Dutch text.
 *   `EN_Sentence`: (Optional) English translation, read once at the start.
