@@ -17,9 +17,9 @@ VOICE_NAME = "Zephyr"
 
 # Pause multipliers
 # Pause after each repetition for you to speak
-PAUSE_MULTIPLIER_REPEAT = 1.5
+PAUSE_MULTIPLIER_REPEAT = 1.0
 # Longer pause after all repetitions of a sentence are done
-PAUSE_MULTIPLIER_NEXT = 2.5
+PAUSE_MULTIPLIER_NEXT = 1.5
 # --- END CONFIGURATION ---
 
 def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, language: str = 'nl') -> tuple[bytes | None, str | None]:
@@ -34,7 +34,8 @@ def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, lang
         prompt = f"Read this English sentence in a clear, calm, and engaging voice: {text}"
 
     try:
-        model = "gemini-2.5-pro-preview-tts"
+        #model = "gemini-2.5-pro-preview-tts"
+        model = "gemini-2.5-flash-preview-tts"
         contents = [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
         generate_content_config = types.GenerateContentConfig(
             response_modalities=["audio"],
@@ -42,7 +43,7 @@ def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, lang
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=VOICE_NAME)
                 )
-            ),
+            )
         )
 
         full_response_data = b""
@@ -67,6 +68,9 @@ def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, lang
 
     except Exception as e:
         print(f"  - ERROR: An error occurred during API call: {e}")
+        if "API_KEY_INVALID" in str(e):
+            print("\nERROR: Your Gemini API key is not valid. Please check your GEMINI_API_KEY environment variable.")
+            sys.exit(1)
         return None, None
 
 def create_audio_segment(audio_data: bytes, mime_type: str) -> AudioSegment:
@@ -162,9 +166,9 @@ def process_group(group_name: str, group_df: pd.DataFrame, client: genai.Client,
     # Export the final combined audio file for the group
     if len(final_audio) > 0:
         print(f"  -> Exporting audio file: {output_path}")
-        final_audio.export(output_path, format="mp3")
+        final_audio.export(output_path, format="ogg", parameters=["-q:a", "7"])
     else:
-        print(f"  -> No audio was generated for group '{group_df.name}'. Skipping export.")
+        print(f"  -> No audio was generated for group '{group_name}'. Skipping export.")
 
 def main():
     """Main function to run the audio generation script."""
@@ -173,8 +177,9 @@ def main():
     args = parser.parse_args()
 
     # Check for API Key
-    if "GEMINI_API_KEY" not in os.environ:
-        print("ERROR: Please set the GEMINI_API_KEY environment variable.")
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print("ERROR: The GEMINI_API_KEY environment variable is not set or is empty.")
         sys.exit(1)
 
     # Check for CSV and output folder
@@ -209,7 +214,7 @@ def main():
     print("Checking for existing files...")
     for name, group in grouped:
         sanitized_name = "".join(x for x in name if x.isalnum() or x in "._-")
-        output_path = os.path.join(OUTPUT_FOLDER, f"{sanitized_name}.mp3")
+        output_path = os.path.join(OUTPUT_FOLDER, f"{sanitized_name}.ogg")
         if not os.path.exists(output_path):
             groups_to_process.append((name, group, output_path))
         else:
@@ -230,7 +235,7 @@ def main():
         name, group, output_path = groups_to_process[0]
         first_row_group = group.head(1).copy()
         first_row_group.name = name # Preserve the group name
-        groups_to_process = [(name, first_row_group, output_path.replace(".mp3", "_TEST.mp3"))]
+        groups_to_process = [(name, first_row_group, output_path.replace(".ogg", "_TEST.ogg"))]
     else:
         confirm = input("\nProceed with generating these files? (y/n): ")
         if confirm.lower() != 'y':
@@ -238,7 +243,7 @@ def main():
             sys.exit(0)
     
     # Initialize API client
-    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    client = genai.Client(api_key=api_key)
 
     # Process each group
     start_time = time.time()
