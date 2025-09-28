@@ -54,11 +54,11 @@ The CSV is designed to be flexible. A common workflow is to have a `Paragraph` r
 
 The script requires the following column headers in `dutch_notes.csv`.
 
-| NL_Sentence | EN_Sentence | Type | File_Group | Repetitions | Tense |
+| NL_Sentence | EN_Sentence | Type | File_Group | Repetitions | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| *De kat zit...* |  | Paragraph | DeKatEnDeHond | | Present |
-| De kat zit op de mat. | The cat sits on the mat. | Repeat | DeKatEnDeHond | 3 | Present |
-| De hond slaapt. | The dog sleeps. | Repeat | DeKatEnDeHond | | Present |
+| *De kat zit...* |  | Paragraph | DeKatEnDeHond | | Present tense |
+| De kat zit op de mat. | The cat sits on the mat. | Repeat | DeKatEnDeHond | 3 | Present tense |
+| De hond slaapt. | The dog sleeps. | Repeat | DeKatEnDeHond | | Present tense |
 
 **Note on Comments:** You can add comments to your CSV file by starting a line with `#` or `//`. These lines will be ignored by the script.
 
@@ -67,7 +67,7 @@ The script requires the following column headers in `dutch_notes.csv`.
 *   `Type`: **(Required)** `Paragraph` or `Repeat`.
 *   `File_Group`: **(Required)** Groups rows into a single MP3 file.
 *   `Repetitions`: (Optional) Number of times to repeat the Dutch audio. Defaults to 2.
-*   `Tense`: (Optional) For personal notes; ignored by the script.
+*   `Notes`: (Optional) For personal notes; ignored by the script.
 
 **Pro Tip:** For easy editing and management, you can maintain your notes in a Google Sheet and export it to CSV format.
 
