@@ -15,6 +15,8 @@ VOICE_NAME = "Zephyr"
 PAUSE_MULTIPLIER_REPEAT = 1.5
 PAUSE_MULTIPLIER_NEXT = 2.5
 API_CALLS_PER_MINUTE = 10
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 5
 # --- END CONFIGURATION ---
 
 api_call_timestamps = []
@@ -24,80 +26,79 @@ def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, lang
     global api_call_timestamps
     current_time = time.time()
 
-    # Remove timestamps older than 60 seconds
+    # Rate limiting
     api_call_timestamps = [t for t in api_call_timestamps if current_time - t < 60]
-
-    # If the limit is reached, wait until the oldest call is older than a minute
     if len(api_call_timestamps) >= API_CALLS_PER_MINUTE:
         oldest_call_time = api_call_timestamps[0]
         time_to_wait = (oldest_call_time + 60) - current_time
         if time_to_wait > 0:
             print(f"  - Rate limit reached. Waiting for {time_to_wait:.1f} seconds...")
             time.sleep(time_to_wait)
-    
-    # Record the timestamp of the current call
     api_call_timestamps.append(time.time())
 
-    print(f"  - Generating audio for: '{text[:50]}...'")
+    # Prepare the prompt
     if is_paragraph:
         prompt = f"Read this {language.capitalize()} passage in a clear, calm, and engaging storytelling voice: {text}"
     else:
         prompt = f"Speak this {language.capitalize()} sentence slowly and very clearly for a language learner: {text}"
 
-    try:
-        #model = "gemini-2.5-pro-preview-tts"
-        model = "gemini-2.5-flash-preview-tts"
-        contents = [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
-        generate_content_config = types.GenerateContentConfig(
-            response_modalities=["audio"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=VOICE_NAME)
+    print(f"  - Generating audio for: '{text[:50]}...'")
+
+    # Retry loop
+    for attempt in range(MAX_RETRIES):
+        try:
+            model = "gemini-2.5-flash-preview-tts"
+            contents = [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
+            generate_content_config = types.GenerateContentConfig(
+                response_modalities=["audio"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=VOICE_NAME)
+                    )
                 )
             )
-        )
 
-        full_response_data = b""
-        mime_type = None
+            full_response_data = b""
+            mime_type = None
 
-        for chunk in client.models.generate_content_stream(
-            model=model, contents=contents, config=generate_content_config
-        ):
-            if not chunk.candidates:
-                continue
-
-            candidate = chunk.candidates[0]
-
-            # Check for empty content and handle potential blocking reasons
-            if not candidate.content or not candidate.content.parts:
-                # If the API provides a reason for blocking, report it and exit.
-                if candidate.prompt_feedback and candidate.prompt_feedback.block_reason:
-                    print(f"  - ERROR: Audio generation blocked. Reason: {candidate.prompt_feedback.block_reason.name}")
-                    print(f"  - This can happen due to rate limits or content safety filters.")
-                    print("  - Stopping execution as requested.")
-                    sys.exit(1) # Exit the script immediately
-                else:
-                    # Otherwise, it's likely a harmless empty chunk; ignore and continue.
+            for chunk in client.models.generate_content_stream(
+                model=model, contents=contents, config=generate_content_config
+            ):
+                if not chunk.candidates:
                     continue
+                candidate = chunk.candidates[0]
+                if not candidate.content or not candidate.content.parts:
+                    if candidate.prompt_feedback and candidate.prompt_feedback.block_reason:
+                        print(f"  - ERROR: Audio generation blocked. Reason: {candidate.prompt_feedback.block_reason.name}")
+                        print("  - Stopping execution.")
+                        sys.exit(1)
+                    else:
+                        continue
+                part = candidate.content.parts[0]
+                if part.inline_data:
+                    if not mime_type:
+                        mime_type = part.inline_data.mime_type
+                    full_response_data += part.inline_data.data
+
+            if not full_response_data:
+                raise ValueError("API returned no audio data.")
+
+            return full_response_data, mime_type
+
+        except Exception as e:
+            print(f"  - WARNING: API call failed on attempt {attempt + 1} of {MAX_RETRIES}. Error: {e}")
+            if "API_KEY_INVALID" in str(e):
+                print("\nERROR: Your Gemini API key is not valid. Please check your GEMINI_API_KEY environment variable.")
+                sys.exit(1)
             
-            part = candidate.content.parts[0]
-            if part.inline_data:
-                if not mime_type:
-                    mime_type = part.inline_data.mime_type
-                full_response_data += part.inline_data.data
+            if attempt < MAX_RETRIES - 1:
+                delay = RETRY_DELAY_SECONDS * (attempt + 1)
+                print(f"  - Waiting for {delay} seconds before retrying...")
+                time.sleep(delay)
+            else:
+                print(f"  - ERROR: All {MAX_RETRIES} retry attempts failed.")
 
-        if not full_response_data:
-            print("  - WARNING: API returned no audio data.")
-            return None, None
-
-        return full_response_data, mime_type
-
-    except Exception as e:
-        print(f"  - ERROR: An error occurred during API call: {e}")
-        if "API_KEY_INVALID" in str(e):
-            print("\nERROR: Your Gemini API key is not valid. Please check your GEMINI_API_KEY environment variable.")
-            sys.exit(1)
-        return None, None
+    return None, None
 
 def create_audio_segment(audio_data: bytes, mime_type: str) -> AudioSegment:
     """Creates a pydub AudioSegment from raw audio data."""
