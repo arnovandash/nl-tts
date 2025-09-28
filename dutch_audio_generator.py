@@ -8,10 +8,8 @@ import pandas as pd
 from pydub import AudioSegment
 from google import genai
 from google.genai import types
-import io
 
 # --- CONFIGURATION ---
-CSV_FILE_PATH = "dutch_notes.csv"
 OUTPUT_FOLDER = "output_audio"
 VOICE_NAME = "Zephyr"
 
@@ -172,37 +170,36 @@ def process_group(group_name: str, group_df: pd.DataFrame, client: genai.Client,
 
 def main():
     """Main function to run the audio generation script."""
-    parser = argparse.ArgumentParser(description="Generate Dutch audio lessons from a CSV file.")
+    parser = argparse.ArgumentParser(description="Generate Dutch audio lessons from a CSV or TSV file.")
+    parser.add_argument("input_file", help="Path to the input CSV or TSV file.")
     parser.add_argument("--test", action="store_true", help="Run in test mode: generates only the first sentence of the first new group.")
     args = parser.parse_args()
 
     # Check for API Key
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print("ERROR: The GEMINI_API_KEY environment variable is not set or is empty.")
+    if "GEMINI_API_KEY" not in os.environ:
+        print("ERROR: Please set the GEMINI_API_KEY environment variable.")
         sys.exit(1)
 
-    # Check for CSV and output folder
-    if not os.path.exists(CSV_FILE_PATH):
-        print(f"ERROR: Cannot find the input file: {CSV_FILE_PATH}")
+    # Determine separator from file extension
+    if args.input_file.lower().endswith('.tsv'):
+        separator = '\t'
+    else:
+        separator = ','
+
+    # Check for input file and output folder
+    if not os.path.exists(args.input_file):
+        print(f"ERROR: Cannot find the input file: {args.input_file}")
         sys.exit(1)
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
     # Load and prepare data
     try:
-        with open(CSV_FILE_PATH, 'r') as f:
-            lines = f.readlines()
-        
-        filtered_lines = []
-        for line in lines:
-            stripped_line = line.strip()
-            if not stripped_line.startswith('#') and not stripped_line.startswith('//'):
-                filtered_lines.append(line)
-
-        csv_data = "".join(filtered_lines)
-        df = pd.read_csv(io.StringIO(csv_data), skipinitialspace=True)
-
+        df = pd.read_csv(args.input_file, sep=separator, comment='#')
         df.columns = [c.strip() for c in df.columns] # Clean column names
+        
+        # Drop rows where File_Group is NaN to prevent processing invalid lines
+        df.dropna(subset=['File_Group'], inplace=True)
+
         df['File_Group'] = df['File_Group'].astype(str).str.strip()
     except Exception as e:
         print(f"ERROR: Could not read or process CSV file. Make sure it has the correct columns. Details: {e}")
@@ -243,7 +240,7 @@ def main():
             sys.exit(0)
     
     # Initialize API client
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
     # Process each group
     start_time = time.time()

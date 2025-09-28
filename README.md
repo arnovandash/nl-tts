@@ -2,17 +2,17 @@
 
 A language learning text-to-speech audio snippet generator for learning through sentence repetition, similar to the Glossika method.
 
-This script automates the creation of Dutch audio lessons from a CSV file. It uses the Google Gemini API to generate text-to-speech audio, designed for practicing grammar and speaking. The script groups sentences, adds pauses for repetition, and handles different recording types like paragraphs and single sentences. I created it specifically for my Dutch language studies but it can easily be adapted for any language.
+This script automates the creation of Dutch audio lessons from a user-provided CSV or TSV file. It uses the Google Gemini API to generate text-to-speech audio, designed for practicing grammar and speaking. The script groups sentences, adds pauses for repetition, and handles different recording types like paragraphs and single sentences. I created it specifically for my Dutch language studies but it can easily be adapted for any language.
 
 ## How It Works
 
-*   **Reads from CSV:** All lesson content is read from `dutch_notes.csv`, which defines the sentences, types, and grouping.
+*   **Reads from CSV or TSV:** All lesson content is read from the input file provided on the command line. The script automatically detects if the file is comma-separated or tab-separated based on the file extension (`.csv` or `.tsv`).
 *   **Groups into MP3s:** Rows are grouped by the `File_Group` column. Each unique group is compiled into a single MP3 file in the `output_audio` folder.
 *   **Skips Existing Files:** The script checks if an audio file for a group already exists and will not re-generate it, saving API usage.
 *   **Handles Two Recording Types:**
     *   **`Paragraph`:** Reads a block of text with a natural, narrative voice.
     *   **`Repeat`:** Reads a single sentence slowly and clearly, automatically adding pauses after each repetition for the user to speak.
-*   **Configurable Repetition:** The CSV allows specifying how many times a Dutch sentence should be repeated (defaults to 2). An optional `EN_Sentence` will be read once at the beginning.
+*   **Configurable Repetition:** The input file allows specifying how many times a Dutch sentence should be repeated (defaults to 2). An optional `EN_Sentence` will be read once at the beginning.
 *   **Test Mode:** A `--test` flag processes only the first sentence of the first new group for a quick sample.
 *   **User Confirmation:** Before generating files, the script lists what will be created and prompts for confirmation.
 
@@ -31,28 +31,36 @@ This script automates the creation of Dutch audio lessons from a CSV file. It us
 
 4.  **Create Project Files:** In your project directory, create:
     *   The python script (e.g., `dutch_audio_generator.py`).
-    *   A CSV file named `dutch_notes.csv`.
+    *   Your input file (e.g., `my_dutch_notes.csv`).
     *   An empty folder named `output_audio`.
 
 ## Usage
 
 ### Generate All New Files
-This command processes `dutch_notes.csv` and generates all missing audio files.
+Provide the path to your input file (CSV or TSV) as an argument.
+
 ```bash
-python dutch_audio_generator.py
+# Using a CSV file
+python dutch_audio_generator.py path/to/your/notes.csv
+
+# Using a TSV file
+python dutch_audio_generator.py path/to/your/notes.tsv
 ```
 
 ### Generate a Test File
-Use the `--test` flag to quickly generate a sample audio file from the first new sentence. The output file will have a `_TEST.mp3` suffix.
+Use the `--test` flag along with the input file path to quickly generate a sample audio file from the first new sentence.
+
 ```bash
-python dutch_audio_generator.py --test
+python dutch_audio_generator.py path/to/your/notes.csv --test
 ```
 
-## CSV Structure
+## Input File Structure
 
-The CSV is designed to be flexible. A common workflow is to have a `Paragraph` row containing a full block of text, followed by several `Repeat` rows, each containing a sentence from that paragraph. This allows you to first hear the full text, and then practice the individual sentences in any order you like.
+The input file is designed to be flexible and can be either a CSV (comma-separated) or TSV (tab-separated) file. The script auto-detects the format based on the file extension.
 
-The script requires the following column headers in `dutch_notes.csv`.
+A common workflow is to have a `Paragraph` row containing a full block of text, followed by several `Repeat` rows, each containing a sentence from that paragraph. This allows you to first hear the full text, and then practice the individual sentences in any order you like.
+
+The script requires the following column headers in the input file.
 
 | NL_Sentence | EN_Sentence | Type | File_Group | Repetitions | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -69,15 +77,14 @@ The script requires the following column headers in `dutch_notes.csv`.
 *   `Repetitions`: (Optional) Number of times to repeat the Dutch audio. Defaults to 2.
 *   `Notes`: (Optional) For personal notes; ignored by the script.
 
-**Pro Tip:** For easy editing and management, you can maintain your notes in a Google Sheet and export it to CSV format.
+**Pro Tip:** For easy editing and management, you can maintain your notes in a Google Sheet and export it to CSV or TSV format.
 
 ## Script Configuration
 
-Key variables like file paths and pause durations can be adjusted at the top of the Python script.
+Key variables like pause durations can be adjusted at the top of the Python script. The input file path is now handled via a command-line argument.
 
 ```python
 # --- CONFIGURATION ---
-CSV_FILE_PATH = "dutch_notes.csv"
 OUTPUT_FOLDER = "output_audio"
 VOICE_NAME = "Zephyr"
 PAUSE_MULTIPLIER_REPEAT = 1.5
