@@ -12,24 +12,37 @@ from google.genai import types
 # --- CONFIGURATION ---
 OUTPUT_FOLDER = "output_audio"
 VOICE_NAME = "Zephyr"
-
-# Pause multipliers
-# Pause after each repetition for you to speak
-PAUSE_MULTIPLIER_REPEAT = 1.0
-# Longer pause after all repetitions of a sentence are done
-PAUSE_MULTIPLIER_NEXT = 1.5
+PAUSE_MULTIPLIER_REPEAT = 1.5
+PAUSE_MULTIPLIER_NEXT = 2.5
+API_CALLS_PER_MINUTE = 10
 # --- END CONFIGURATION ---
 
-def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, language: str = 'nl') -> tuple[bytes | None, str | None]:
+api_call_timestamps = []
+
+def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, language: str) -> tuple[bytes | None, str | None]:
     """Generates audio using the Gemini API and returns the raw audio data and mime type."""
+    global api_call_timestamps
+    current_time = time.time()
+
+    # Remove timestamps older than 60 seconds
+    api_call_timestamps = [t for t in api_call_timestamps if current_time - t < 60]
+
+    # If the limit is reached, wait until the oldest call is older than a minute
+    if len(api_call_timestamps) >= API_CALLS_PER_MINUTE:
+        oldest_call_time = api_call_timestamps[0]
+        time_to_wait = (oldest_call_time + 60) - current_time
+        if time_to_wait > 0:
+            print(f"  - Rate limit reached. Waiting for {time_to_wait:.1f} seconds...")
+            time.sleep(time_to_wait)
+    
+    # Record the timestamp of the current call
+    api_call_timestamps.append(time.time())
+
     print(f"  - Generating audio for: '{text[:50]}...'")
-    if language == 'nl':
-        if is_paragraph:
-            prompt = f"Read this Dutch passage in a clear, calm, and engaging storytelling voice: {text}"
-        else:
-            prompt = f"Read this Dutch passage in a clear, calm, and engaging voice like a teacher: {text}"
-    else: # language == 'en'
-        prompt = f"Read this English sentence in a clear, calm, and engaging voice: {text}"
+    if is_paragraph:
+        prompt = f"Read this {language.capitalize()} passage in a clear, calm, and engaging storytelling voice: {text}"
+    else:
+        prompt = f"Speak this {language.capitalize()} sentence slowly and very clearly for a language learner: {text}"
 
     try:
         #model = "gemini-2.5-pro-preview-tts"
@@ -52,7 +65,22 @@ def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, lang
         ):
             if not chunk.candidates:
                 continue
-            part = chunk.candidates[0].content.parts[0]
+
+            candidate = chunk.candidates[0]
+
+            # Check for empty content and handle potential blocking reasons
+            if not candidate.content or not candidate.content.parts:
+                # If the API provides a reason for blocking, report it and exit.
+                if candidate.prompt_feedback and candidate.prompt_feedback.block_reason:
+                    print(f"  - ERROR: Audio generation blocked. Reason: {candidate.prompt_feedback.block_reason.name}")
+                    print(f"  - This can happen due to rate limits or content safety filters.")
+                    print("  - Stopping execution as requested.")
+                    sys.exit(1) # Exit the script immediately
+                else:
+                    # Otherwise, it's likely a harmless empty chunk; ignore and continue.
+                    continue
+            
+            part = candidate.content.parts[0]
             if part.inline_data:
                 if not mime_type:
                     mime_type = part.inline_data.mime_type
