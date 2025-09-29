@@ -15,8 +15,8 @@ VOICE_NAME = "Zephyr"
 PAUSE_MULTIPLIER_REPEAT = 1.5
 PAUSE_MULTIPLIER_NEXT = 2.5
 API_CALLS_PER_MINUTE = 10
-MAX_RETRIES = 3
-RETRY_DELAY_SECONDS = 5
+MAX_RETRIES = 10
+RETRY_DELAY_SECONDS = 20
 # --- END CONFIGURATION ---
 
 api_call_timestamps = []
@@ -32,7 +32,7 @@ def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, lang
         oldest_call_time = api_call_timestamps[0]
         time_to_wait = (oldest_call_time + 60) - current_time
         if time_to_wait > 0:
-            print(f"  - Rate limit reached. Waiting for {time_to_wait:.1f} seconds...")
+            print(f"  - Proactively pausing for {time_to_wait:.1f} seconds to avoid hitting the rate limit...", flush=True)
             time.sleep(time_to_wait)
     api_call_timestamps.append(time.time())
 
@@ -40,7 +40,7 @@ def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, lang
     if is_paragraph:
         prompt = f"Read this {language.capitalize()} passage in a clear, calm, and engaging storytelling voice: {text}"
     else:
-        prompt = f"Speak this {language.capitalize()} sentence slowly and very clearly for a language learner: {text}"
+        prompt = f"Speak this {language.capitalize()} sentence in clear, calm and engaging teacher's voice: {text}"
 
     print(f"  - Generating audio for: '{text[:50]}...'")
 
@@ -86,17 +86,25 @@ def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, lang
             return full_response_data, mime_type
 
         except Exception as e:
-            print(f"  - WARNING: API call failed on attempt {attempt + 1} of {MAX_RETRIES}. Error: {e}")
+            # Handle fatal quota errors immediately
+            if "RESOURCE_EXHAUSTED" in str(e):
+                print("\n  - FATAL ERROR: API quota limit reached (RESOURCE_EXHAUSTED).", flush=True)
+                print("  - The API is reporting that a usage limit has been exceeded (e.g., requests per day).", flush=True)
+                print("  - Please check your Google AI Platform dashboard for quota details.", flush=True)
+                print("  - Stopping execution.", flush=True)
+                sys.exit(1)
+
+            print(f"  - WARNING: API call failed on attempt {attempt + 1} of {MAX_RETRIES}. Error: {e}", flush=True)
             if "API_KEY_INVALID" in str(e):
-                print("\nERROR: Your Gemini API key is not valid. Please check your GEMINI_API_KEY environment variable.")
+                print("\nERROR: Your Gemini API key is not valid. Please check your GEMINI_API_KEY environment variable.", flush=True)
                 sys.exit(1)
             
             if attempt < MAX_RETRIES - 1:
                 delay = RETRY_DELAY_SECONDS * (attempt + 1)
-                print(f"  - Waiting for {delay} seconds before retrying...")
+                print(f"  - Waiting for {delay} seconds before retrying...", flush=True)
                 time.sleep(delay)
             else:
-                print(f"  - ERROR: All {MAX_RETRIES} retry attempts failed.")
+                print(f"  - ERROR: All {MAX_RETRIES} retry attempts failed.", flush=True)
 
     return None, None
 
@@ -119,7 +127,6 @@ def process_group(group_name: str, group_df: pd.DataFrame, client: genai.Client,
     """Processes a group of rows from the CSV and generates a single audio file."""
     print(f"\nProcessing group: {group_name}...")
     final_audio = AudioSegment.empty()
-    is_paragraph_processed = False
     audio_cache = {}
 
     def get_or_generate_audio(text: str, is_paragraph: bool, language: str = 'nl') -> AudioSegment | None:
@@ -139,15 +146,14 @@ def process_group(group_name: str, group_df: pd.DataFrame, client: genai.Client,
     for _, row in group_df.iterrows():
         audio_type = row.get('Type', 'Repeat').strip()
 
-        # Handle Paragraph type (only once per group)
-        if audio_type == 'Paragraph' and not is_paragraph_processed:
+        # Handle Paragraph type
+        if audio_type == 'Paragraph':
             paragraph_text = row.get('NL_Sentence')
             if pd.notna(paragraph_text):
                 paragraph_segment = get_or_generate_audio(paragraph_text, is_paragraph=True, language='nl')
                 if paragraph_segment:
                     final_audio += paragraph_segment
                     final_audio += AudioSegment.silent(duration=2000)
-                is_paragraph_processed = True
 
         # Handle Repeat type
         elif audio_type == 'Repeat':
@@ -239,6 +245,10 @@ def main():
     
     print("Checking for existing files...")
     for name, group in grouped:
+        # Safeguard against processing the header row as data
+        if name == 'File_Group':
+            continue
+
         sanitized_name = "".join(x for x in name if x.isalnum() or x in "._-")
         output_path = os.path.join(OUTPUT_FOLDER, f"{sanitized_name}.ogg")
         if not os.path.exists(output_path):

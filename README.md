@@ -54,6 +54,8 @@ python dutch_audio_generator.py path/to/your/notes.csv --test
 
 ## Input File Structure
 
+The input file is designed to be flexible. You can mix `Paragraph` and `Repeat` rows within the same `File_Group`. A common workflow is to have a `Paragraph` row containing a full block of text, followed by several `Repeat` rows for practicing the individual sentences. You can have multiple such paragraph/sentence blocks within a single audio file group.
+
 The script requires the following column headers in the input file.
 
 | NL_Sentence | EN_Sentence | Type | File_Group | Repetitions | Notes |
