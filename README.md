@@ -66,7 +66,9 @@ The script requires the following column headers in the input file.
 
 *   `NL_Sentence`: **(Required)** The primary language text to be spoken.
 *   `EN_Sentence`: (Optional) A translation or secondary language text. If present, its audio will be generated and played once before the `NL_Sentence` repetitions.
-*   `Type`: **(Required)** `Paragraph` or `Repeat`.
+*   `Type`: **(Required)** Can be `Paragraph` or `Repeat`. This changes the speaking style of the generated audio.
+    *   `Paragraph`: Uses a prompt for a natural, engaging storytelling voice. Ideal for listening to a full text.
+    *   `Repeat`: Uses a prompt for a slower, clearer voice specifically for language learners. This is better for focusing on and repeating individual sentences.
 *   `File_Group`: **(Required)** Groups rows into a single OGG file.
 *   `Repetitions`: (Optional) Number of times to repeat the `NL_Sentence` audio. Defaults to 2.
 *   `Notes`: (Optional) For personal notes; ignored by the script.
