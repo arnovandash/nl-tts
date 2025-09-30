@@ -12,8 +12,8 @@ from google.genai import types
 # --- CONFIGURATION ---
 OUTPUT_FOLDER = "output_audio"
 VOICE_NAME = "Zephyr"
-PAUSE_MULTIPLIER_REPEAT = 1.5
-PAUSE_MULTIPLIER_NEXT = 2.5
+PAUSE_MULTIPLIER_REPEAT = 1.2
+PAUSE_MULTIPLIER_NEXT = 2
 API_CALLS_PER_MINUTE = 10
 MAX_RETRIES = 10
 RETRY_DELAY_SECONDS = 20
@@ -38,9 +38,9 @@ def generate_tts_audio(client: genai.Client, text: str, is_paragraph: bool, lang
 
     # Prepare the prompt
     if is_paragraph:
-        prompt = f"Read this {language.capitalize()} passage in a clear, calm, and engaging storytelling voice: {text}"
+        prompt = f"Read this {language.capitalize()} passage at a comfortable pace, in a clear, calm, and engaging voice: {text}"
     else:
-        prompt = f"Speak this {language.capitalize()} sentence in clear, calm and engaging teacher's voice: {text}"
+        prompt = f"Read this {language.capitalize()} passage at a comfortable pace, in a clear, calm, and engaging voice: {text}"
 
     print(f"  - Generating audio for: '{text[:50]}...'")
 
